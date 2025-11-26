@@ -1,0 +1,5 @@
+{
+  "name": "Codex Playground",
+  "description": "A high-performance, AI-powered code editor running directly in the browser. Features real-time syntax highlighting, multi-language support including C++ and Java, and a context-aware Gemini AI assistant.",
+  "requestFramePermissions": []
+}
