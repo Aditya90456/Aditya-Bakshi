@@ -19,6 +19,13 @@ export const Editor: React.FC<EditorProps> = ({ file, onChange, onAIAction }) =>
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Fix for closure trap: keep a ref to the latest onAIAction
+  const onAIActionRef = useRef(onAIAction);
+
+  useEffect(() => {
+    onAIActionRef.current = onAIAction;
+  }, [onAIAction]);
 
   // Load Monaco Editor
   useEffect(() => {
@@ -92,7 +99,8 @@ export const Editor: React.FC<EditorProps> = ({ file, onChange, onAIAction }) =>
               run: (ed: any) => {
                 const selection = ed.getSelection();
                 const text = ed.getModel().getValueInRange(selection);
-                onAIAction(actionName, text || ed.getModel().getValue());
+                // Use the ref to ensure we call the latest handler with current state
+                onAIActionRef.current(actionName, text || ed.getModel().getValue());
               }
             });
           };
