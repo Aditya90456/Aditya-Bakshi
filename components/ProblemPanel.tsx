@@ -1,4 +1,3 @@
-
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import { DSATopic } from '../types';
@@ -64,34 +63,6 @@ export const ProblemPanel: React.FC<ProblemPanelProps> = ({ problem, onClose, is
                 {problem.readTime}
             </span>
         </div>
-
-        {/* Video Player (If available) */}
-        {problem.videoUrl && (
-            <div className="mb-8 rounded-xl overflow-hidden border border-zinc-800 bg-black shadow-lg">
-                <div className="aspect-video relative group">
-                    <iframe 
-                        src={problem.videoUrl} 
-                        title={problem.title}
-                        className="w-full h-full absolute inset-0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        referrerPolicy="strict-origin-when-cross-origin"
-                        allowFullScreen
-                    ></iframe>
-                </div>
-                {problem.videoId && (
-                     <div className="px-4 py-2 bg-zinc-900/50 flex justify-end border-t border-zinc-800">
-                         <a 
-                            href={`https://www.youtube.com/watch?v=${problem.videoId}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs flex items-center gap-1 text-zinc-500 hover:text-white transition-colors"
-                         >
-                            Open in YouTube <ExternalLink className="w-3 h-3" />
-                         </a>
-                     </div>
-                )}
-            </div>
-        )}
 
         {/* Markdown Content */}
         <div className="prose prose-invert prose-sm max-w-none prose-headings:text-zinc-100 prose-p:text-zinc-400 prose-strong:text-zinc-200 prose-code:text-indigo-300 prose-code:bg-indigo-500/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-zinc-900 prose-pre:border prose-pre:border-zinc-800">

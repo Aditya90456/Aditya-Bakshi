@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Sparkles, X, Loader2, Code2 } from 'lucide-react';
+import { Send, Bot, User, X, Loader2, Code2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { ChatMessage, FileData } from '../types';
 import { sendMessageStream } from '../services/geminiService';
@@ -89,7 +89,7 @@ export const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose, activeFile, aiT
   if (!isOpen) return null;
 
   return (
-    <div className="flex flex-col h-full bg-zinc-950 border-l border-zinc-800 w-96 shadow-2xl absolute right-0 top-0 bottom-0 z-50 animate-in slide-in-from-right duration-300 font-sans">
+    <div className="flex flex-col h-full bg-zinc-950 border-l border-zinc-800 font-sans w-full">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-black/40 backdrop-blur-md">
         <div className="flex items-center gap-2.5 text-indigo-400">
@@ -116,7 +116,7 @@ export const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose, activeFile, aiT
               {msg.role === 'user' ? <User className="w-4 h-4 text-white" /> : <Bot className="w-4 h-4 text-indigo-400" />}
             </div>
             
-            <div className={`flex flex-col max-w-[85%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+            <div className={`flex flex-col max-w-[90%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
               <div
                 className={`p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
                   msg.role === 'user'

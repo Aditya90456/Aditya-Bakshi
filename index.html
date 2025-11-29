@@ -29,6 +29,7 @@
               'slide-up': 'slideUp 0.5s ease-out forwards',
               'float': 'float 6s ease-in-out infinite',
               'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'progress': 'progress 2s infinite linear',
             },
             keyframes: {
               fadeIn: {
@@ -42,6 +43,10 @@
               float: {
                 '0%, 100%': { transform: 'translateY(0)' },
                 '50%': { transform: 'translateY(-10px)' },
+              },
+              progress: {
+                '0%': { transform: 'translateX(-100%)' },
+                '100%': { transform: 'translateX(100%)' },
               }
             }
           }
@@ -89,7 +94,17 @@
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react": "https://aistudiocdn.com/react@^19.2.0",
     "prismjs/": "https://aistudiocdn.com/prismjs@^1.30.0/",
-    "prismjs": "https://aistudiocdn.com/prismjs@^1.30.0"
+    "prismjs": "https://aistudiocdn.com/prismjs@^1.30.0",
+    "dotenv": "https://aistudiocdn.com/dotenv@^17.2.3",
+    "cors": "https://aistudiocdn.com/cors@^2.8.5",
+    "express": "https://aistudiocdn.com/express@^5.1.0",
+    "nodemailer": "https://aistudiocdn.com/nodemailer@^7.0.11",
+    "path": "https://aistudiocdn.com/path@^0.12.7",
+    "fs": "https://aistudiocdn.com/fs@^0.0.1-security",
+    "url": "https://aistudiocdn.com/url@^0.11.4",
+    "firebase/app": "https://aistudiocdn.com/firebase@^10.8.0/app",
+    "firebase/auth": "https://aistudiocdn.com/firebase@^10.8.0/auth",
+    "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/"
   }
 }
 </script>

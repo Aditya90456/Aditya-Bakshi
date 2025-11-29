@@ -36,9 +36,11 @@ export interface LogEntry {
 
 export interface UserProfile {
   name: string;
+  email?: string; // Added for DB
   level: string;
   points: number;
   completedTopics: string[]; // List of Topic IDs
+  files?: FileData[]; // Cloud Save: User's files
 }
 
 export interface TestCase {
@@ -49,7 +51,7 @@ export interface TestCase {
 export interface DSATopic {
   id: string;
   title: string;
-  source: 'Striver' | 'Love Babbar' | 'GFG 250';
+  source: 'Striver' | 'Love Babbar' | 'GFG 250' | 'LeetCode';
   category: string;
   difficulty: 'Easy' | 'Medium' | 'Hard';
   points: number;
@@ -57,11 +59,29 @@ export interface DSATopic {
   icon?: React.ReactNode;
   description: string;
   content: string; // Markdown content
-  videoUrl?: string; // YouTube Embed URL
-  videoId?: string; // Store ID separately for linking
   testCases: TestCase[];
   starterCode: {
     language: Language;
     code: string;
   };
+}
+
+// GIT TYPES
+export type GitChangeType = 'modified' | 'created' | 'deleted';
+
+export interface Commit {
+  id: string;
+  message: string;
+  author: string;
+  timestamp: number;
+  changesCount: number;
+}
+
+export interface GitState {
+  isInitialized: boolean;
+  remoteUrl: string | null;
+  currentBranch: string;
+  commits: Commit[];
+  stagedFiles: string[]; // IDs of files currently staged
+  lastCommittedContent: Record<string, string>; // Snapshot of file content at last commit: { fileId: content }
 }

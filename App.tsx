@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Navbar } from './components/Navbar';
-import { Editor } from './components/Editor';
+import { Editor, EditorHandle } from './components/Editor';
 import { AIChat } from './components/AIChat';
 import { OutputPanel } from './components/OutputPanel';
 import { DSARoadmap } from './components/DSARoadmap';
 import { ProblemPanel } from './components/ProblemPanel';
 import { FileCreationDialog } from './components/FileCreationDialog';
+import { SnippetModal } from './components/SnippetModal';
 import { Home } from './components/Home';
-import { FileData, Language, LogEntry, UserProfile, DSATopic } from './types';
+import { AuthModal } from './components/AuthModal';
+import { FileData, Language, LogEntry, UserProfile, DSATopic, GitState, Commit } from './types';
 import { simulateCodeExecution, analyzeCodeDryRun, generateUnitTests } from './services/geminiService';
-import { Play, Bug, Sparkles, FileText, FlaskConical, ChevronDown } from 'lucide-react';
+import { db } from './services/db';
+import { Play, Bug, Sparkles, FileText, FlaskConical, ChevronDown, Zap, BrainCircuit, Cloud } from 'lucide-react';
 
 const INITIAL_FILES: FileData[] = [
   {
@@ -21,11 +24,13 @@ const INITIAL_FILES: FileData[] = [
   }
 ];
 
-const INITIAL_USER: UserProfile = {
-    name: 'Dev User',
-    level: 'Novice',
-    points: 0,
-    completedTopics: []
+const INITIAL_GIT_STATE: GitState = {
+  isInitialized: false,
+  remoteUrl: null,
+  currentBranch: 'main',
+  commits: [],
+  stagedFiles: [],
+  lastCommittedContent: {}
 };
 
 const getStarterCode = (lang: Language): string => {
@@ -62,47 +67,144 @@ const App: React.FC = () => {
   const [files, setFiles] = useState<FileData[]>(INITIAL_FILES);
   const [activeFileId, setActiveFileId] = useState<string | null>(INITIAL_FILES[0].id);
   
-  // Default view is 'home' now
   const [viewMode, setViewMode] = useState<'home' | 'editor' | 'dsa'>('home');
   const [activeProblem, setActiveProblem] = useState<DSATopic | null>(null);
   
-  // Dialog State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isSnippetModalOpen, setIsSnippetModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [preSelectedLanguage, setPreSelectedLanguage] = useState<Language | undefined>(undefined);
 
-  // User & Gamification State
-  const [user, setUser] = useState<UserProfile>(INITIAL_USER);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Load User & Cloud Files
+  useEffect(() => {
+    const loadUser = async () => {
+        try {
+            const currentUser = await db.getCurrentUser();
+            if (currentUser) {
+                setUser(currentUser);
+                if (currentUser.files && currentUser.files.length > 0) {
+                    setFiles(currentUser.files);
+                    setActiveFileId(currentUser.files[0].id);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to load user session");
+        }
+    };
+    loadUser();
+  }, []);
+
+  // Auto-Save to Cloud
+  useEffect(() => {
+      if (!user) return;
+      
+      const timeoutId = setTimeout(async () => {
+          setIsSaving(true);
+          try {
+              const updatedUser = { ...user, files: files };
+              const savedUser = await db.syncUser(updatedUser);
+              setUser(savedUser);
+          } catch (e) {
+              console.error("Auto-save failed");
+          } finally {
+              setIsSaving(false);
+          }
+      }, 3000); // 3-second debounce
+
+      return () => clearTimeout(timeoutId);
+  }, [files, user?.email]); // Only re-run if files change or user changes
 
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [aiTrigger, setAiTrigger] = useState<{ action: 'debug' | 'explain' | 'test', code: string } | null>(null);
+  const [aiPanelWidth, setAiPanelWidth] = useState(400);
+  const [isDraggingAi, setIsDraggingAi] = useState(false);
   
-  // Output Panel State
   const [isOutputOpen, setIsOutputOpen] = useState(false);
   const [outputLogs, setOutputLogs] = useState<LogEntry[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [outputMode, setOutputMode] = useState<'run' | 'dry-run' | 'preview'>('run');
   const [previewContent, setPreviewContent] = useState<string>('');
 
+  const [gitState, setGitState] = useState<GitState>(INITIAL_GIT_STATE);
+  const editorRef = useRef<EditorHandle>(null);
   const activeFile = activeFileId ? files.find(f => f.id === activeFileId) : null;
 
-  const calculateLevel = (points: number): string => {
-      if (points < 100) return 'Novice';
-      if (points < 300) return 'Apprentice';
-      if (points < 800) return 'Coder';
-      if (points < 1500) return 'Engineer';
-      return 'Architect';
-  }
+  const startResizingAi = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingAi(true);
+  };
 
-  const handleCompleteTopic = (topicId: string, points: number) => {
-      if (user.completedTopics.includes(topicId)) return;
-      
-      const newPoints = user.points + points;
-      setUser({
-          ...user,
-          points: newPoints,
-          completedTopics: [...user.completedTopics, topicId],
-          level: calculateLevel(newPoints)
-      });
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingAi) return;
+      const newWidth = window.innerWidth - e.clientX;
+      if (newWidth > 300 && newWidth < 800) {
+        setAiPanelWidth(newWidth);
+      }
+    };
+    const handleMouseUp = () => setIsDraggingAi(false);
+    if (isDraggingAi) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    } else {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isDraggingAi]);
+
+  // --- HANDLERS ---
+  const handleLogin = async (userData: UserProfile) => {
+      setUser(userData);
+      addLog('success', `Welcome back, ${userData.name}!`);
+      // Sync Cloud Files if available
+      if (userData.files && userData.files.length > 0) {
+          setFiles(userData.files);
+          setActiveFileId(userData.files[0].id);
+          addLog('info', 'Cloud projects synced.');
+      }
+  };
+
+  const handleLogout = async () => {
+      await db.logout();
+      setUser(null);
+      setViewMode('home');
+      setFiles(INITIAL_FILES);
+      setActiveFileId(INITIAL_FILES[0].id);
+      addLog('info', 'Signed out successfully.');
+  };
+
+  const handleCompleteTopic = async (topicId: string, points: number) => {
+      if (!user) {
+          setIsAuthModalOpen(true);
+          addLog('warn', 'Please sign in to track progress.');
+          return;
+      }
+      if (!user.email) return;
+
+      try {
+        const updatedUser = { ...user };
+        updatedUser.points += points;
+        if (!updatedUser.completedTopics.includes(topicId)) {
+            updatedUser.completedTopics.push(topicId);
+        }
+        
+        const saved = await db.syncUser(updatedUser);
+        setUser(saved);
+        addLog('success', `Topic Completed! +${points} XP`);
+      } catch (e) {
+        addLog('error', 'Failed to save progress.');
+      }
   };
 
   const handleFileChange = (newContent: string) => {
@@ -136,8 +238,7 @@ const App: React.FC = () => {
   const handleSolveProblem = (topic: DSATopic) => {
     const newId = Date.now().toString();
     const ext = getExtension(topic.starterCode.language);
-    const sanitizedTitle = topic.title.replace(/\s+/g, '-').toLowerCase().replace(/[^a-z0-9-]/g, '');
-    const fileName = (topic.starterCode.language === 'java') ? 'Main.java' : `${sanitizedTitle}.${ext}`;
+    const fileName = (topic.starterCode.language === 'java') ? 'Main.java' : `solution.${ext}`;
 
     const newFile: FileData = {
         id: newId,
@@ -151,9 +252,7 @@ const App: React.FC = () => {
     setViewMode('editor'); 
   };
 
-  const handleCloseProblem = () => {
-      setActiveProblem(null);
-  }
+  const handleCloseProblem = () => setActiveProblem(null);
 
   const handleDeleteFile = (id: string) => {
     const newFiles = files.filter(f => f.id !== id);
@@ -165,11 +264,9 @@ const App: React.FC = () => {
 
   const handleLanguageSwitch = (newLang: Language) => {
       if (!activeFile) return;
-      
       const ext = getExtension(newLang);
       const baseName = activeFile.name.includes('.') ? activeFile.name.split('.')[0] : activeFile.name;
       const newName = (newLang === 'java') ? 'Main.java' : `${baseName}.${ext}`;
-
       const newContent = getStarterCode(newLang);
 
       setFiles(files.map(f => f.id === activeFile.id ? {
@@ -189,9 +286,73 @@ const App: React.FC = () => {
     }]);
   };
 
+  const handleGitInit = () => {
+    setGitState(prev => ({ ...prev, isInitialized: true, lastCommittedContent: {} }));
+    addLog('system', 'Git repository initialized.');
+  };
+
+  const handleGitStage = (fileId: string) => {
+    setGitState(prev => {
+        if (prev.stagedFiles.includes(fileId)) return prev;
+        return { ...prev, stagedFiles: [...prev.stagedFiles, fileId] };
+    });
+  };
+
+  const handleGitUnstage = (fileId: string) => {
+    setGitState(prev => ({ ...prev, stagedFiles: prev.stagedFiles.filter(id => id !== fileId) }));
+  };
+
+  const handleGitCommit = (message: string) => {
+    if (gitState.stagedFiles.length === 0) return;
+    if (!user) {
+        setIsAuthModalOpen(true);
+        addLog('warn', 'Sign in to commit.');
+        return;
+    }
+
+    const newCommittedContent = { ...gitState.lastCommittedContent };
+    gitState.stagedFiles.forEach(stagedId => {
+        const file = files.find(f => f.id === stagedId);
+        if (file) newCommittedContent[stagedId] = file.content;
+    });
+
+    const newCommit: Commit = {
+        id: Math.random().toString(16).slice(2, 9),
+        message,
+        author: user.name,
+        timestamp: Date.now(),
+        changesCount: gitState.stagedFiles.length
+    };
+
+    setGitState(prev => ({
+        ...prev,
+        commits: [...prev.commits, newCommit],
+        stagedFiles: [],
+        lastCommittedContent: newCommittedContent
+    }));
+    addLog('success', `Committed: ${message}`);
+  };
+
+  const handleGitPush = async () => {
+    if (!user) { setIsAuthModalOpen(true); return; }
+    if (!gitState.remoteUrl) { addLog('error', 'No remote configured.'); return; }
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    addLog('success', `Pushed to ${gitState.currentBranch} at ${gitState.remoteUrl}`);
+  };
+
+  const handleGitPull = async () => {
+      if (!gitState.remoteUrl) { addLog('error', 'No remote configured.'); return; }
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      addLog('info', 'Already up to date.');
+  };
+
+  const handleGitRemoteAdd = (url: string) => {
+      setGitState(prev => ({ ...prev, remoteUrl: url }));
+      addLog('system', `Remote origin set to ${url}`);
+  };
+
   const handleRun = async () => {
     if (!activeFile) return;
-
     setIsOutputOpen(true);
     setOutputLogs([]);
     setIsRunning(true);
@@ -202,9 +363,7 @@ const App: React.FC = () => {
       setIsRunning(false);
       return;
     }
-
     setOutputMode('run');
-
     if (activeFile.language === 'javascript') {
       addLog('system', 'Starting execution...');
       const originalLog = console.log;
@@ -246,8 +405,6 @@ const App: React.FC = () => {
     setOutputLogs([]);
     setOutputMode('dry-run');
     setIsRunning(true);
-    addLog('system', 'Performing static analysis...');
-
     try {
       const analysis = await analyzeCodeDryRun(activeFile.content, activeFile.language);
       addLog('info', analysis);
@@ -263,22 +420,14 @@ const App: React.FC = () => {
     setIsRunning(true);
     addLog('system', `Generating unit tests...`);
     setIsOutputOpen(true);
-
     try {
         const testCode = await generateUnitTests(activeFile.content, activeFile.language, activeFile.name);
         let testFilename = activeFile.name.replace(/\.[^/.]+$/, "");
         if (activeFile.language === 'python') testFilename = `test_${testFilename}.py`;
         else if (activeFile.language === 'java') testFilename = `${testFilename}Test.java`;
         else testFilename = `${testFilename}.test.${getExtension(activeFile.language)}`;
-
         const newId = Date.now().toString();
-        const newFile: FileData = {
-            id: newId,
-            name: testFilename,
-            language: activeFile.language,
-            content: testCode
-        };
-
+        const newFile: FileData = { id: newId, name: testFilename, language: activeFile.language, content: testCode };
         setFiles([...files, newFile]);
         setActiveFileId(newId);
         addLog('success', `Test file created: ${testFilename}`);
@@ -298,6 +447,12 @@ const App: React.FC = () => {
     setIsAiOpen(true);
   };
 
+  const handleSnippetInsert = (code: string) => {
+    if (editorRef.current) {
+      editorRef.current.insertText(code);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-codex-bg text-zinc-100 overflow-hidden font-sans">
       <FileCreationDialog 
@@ -307,11 +462,26 @@ const App: React.FC = () => {
         initialLanguage={preSelectedLanguage}
       />
 
+      <SnippetModal 
+        isOpen={isSnippetModalOpen}
+        onClose={() => setIsSnippetModalOpen(false)}
+        language={activeFile?.language || 'javascript'}
+        onInsert={handleSnippetInsert}
+      />
+
+      <AuthModal 
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onLogin={handleLogin}
+      />
+
       <Navbar 
         activeView={viewMode}
         onNavigate={(mode) => { setViewMode(mode); setActiveProblem(null); }}
         user={user}
         onAddFile={() => handleOpenCreateModal()}
+        onLogin={() => setIsAuthModalOpen(true)}
+        onLogout={handleLogout}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -323,6 +493,14 @@ const App: React.FC = () => {
                 onSelectFile={(id) => setActiveFileId(id)}
                 onAddFile={() => handleOpenCreateModal()}
                 onDeleteFile={handleDeleteFile}
+                gitState={gitState}
+                onGitInit={handleGitInit}
+                onGitStage={handleGitStage}
+                onGitUnstage={handleGitUnstage}
+                onGitCommit={handleGitCommit}
+                onGitPush={handleGitPush}
+                onGitPull={handleGitPull}
+                onGitRemoteAdd={handleGitRemoteAdd}
             />
         )}
 
@@ -332,13 +510,16 @@ const App: React.FC = () => {
               <Home 
                 onNavigate={(mode) => setViewMode(mode)} 
                 onOpenCreate={handleOpenCreateModal}
+                user={user}
+                files={files}
+                onSelectFile={(id) => { setActiveFileId(id); setViewMode('editor'); }}
               />
             )}
 
             {viewMode === 'dsa' && (
                 <DSARoadmap 
                     onSolveProblem={handleSolveProblem} 
-                    completedTopicIds={user.completedTopics}
+                    completedTopicIds={user?.completedTopics || []}
                     onCompleteTopic={handleCompleteTopic}
                 />
             )}
@@ -350,7 +531,7 @@ const App: React.FC = () => {
                             <ProblemPanel 
                                 problem={activeProblem} 
                                 onClose={handleCloseProblem}
-                                isCompleted={user.completedTopics.includes(activeProblem.id)}
+                                isCompleted={user?.completedTopics.includes(activeProblem.id) || false}
                                 onComplete={() => handleCompleteTopic(activeProblem.id, activeProblem.points)}
                             />
                         )}
@@ -375,6 +556,7 @@ const App: React.FC = () => {
                                     </div>
                                     <span className="text-zinc-600">|</span>
                                     <span className="text-zinc-400 font-mono text-xs">{activeFile.name}</span>
+                                    {isSaving && <span className="text-xs text-zinc-500 flex items-center gap-1 animate-pulse"><Cloud className="w-3 h-3" /> Saving...</span>}
                                 </div>
                             
                                 <div className="flex items-center gap-2">
@@ -387,22 +569,16 @@ const App: React.FC = () => {
                                         Run
                                     </button>
                                     
-                                    <button
-                                        onClick={handleDryRun}
-                                        disabled={isRunning}
-                                        className="p-2 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white transition-all"
-                                        title="Dry Run Analysis"
-                                    >
-                                        <Bug className="w-4 h-4" />
+                                    <button onClick={handleDryRun} disabled={isRunning} className="p-2 rounded-lg bg-zinc-800 text-zinc-400 hover:text-purple-400 transition-all group" title="Dry Run Analysis">
+                                        <BrainCircuit className="w-4 h-4 group-hover:scale-110 transition-transform" />
                                     </button>
 
-                                    <button
-                                        onClick={handleGenerateTests}
-                                        disabled={isRunning}
-                                        className="p-2 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white transition-all"
-                                        title="Generate Tests"
-                                    >
+                                    <button onClick={handleGenerateTests} disabled={isRunning} className="p-2 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white transition-all" title="Generate Tests">
                                         <FlaskConical className="w-4 h-4" />
+                                    </button>
+
+                                    <button onClick={() => setIsSnippetModalOpen(true)} className="p-2 rounded-lg bg-zinc-800 text-zinc-400 hover:text-yellow-400 transition-all" title="Insert Snippet">
+                                        <Zap className="w-4 h-4" />
                                     </button>
 
                                     <div className="w-px h-5 bg-zinc-800 mx-1"></div>
@@ -410,9 +586,7 @@ const App: React.FC = () => {
                                     <button
                                         onClick={() => setIsAiOpen(!isAiOpen)}
                                         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all border ${
-                                        isAiOpen 
-                                            ? 'bg-indigo-600 text-white border-indigo-500' 
-                                            : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
+                                        isAiOpen ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
                                         }`}
                                     >
                                         <Sparkles className="w-3.5 h-3.5" />
@@ -422,19 +596,32 @@ const App: React.FC = () => {
                             </div>
 
                             <div className="flex-1 relative flex flex-col min-h-0 bg-codex-bg">
-                                <div className="flex-1 relative min-h-0">
-                                    <Editor
-                                        file={activeFile}
-                                        onChange={handleFileChange}
-                                        onAIAction={handleEditorAIAction}
-                                    />
-                                    <AIChat 
-                                        isOpen={isAiOpen} 
-                                        onClose={() => setIsAiOpen(false)}
-                                        activeFile={activeFile}
-                                        aiTrigger={aiTrigger}
-                                        onActionHandled={() => setAiTrigger(null)}
-                                    />
+                                <div className="flex-1 relative flex flex-row min-h-0">
+                                    <div className="flex-1 min-w-0 relative h-full">
+                                        <Editor
+                                            ref={editorRef}
+                                            file={activeFile}
+                                            onChange={handleFileChange}
+                                            onAIAction={handleEditorAIAction}
+                                        />
+                                    </div>
+                                    {isAiOpen && (
+                                        <>
+                                            <div 
+                                                className="w-1 bg-zinc-800 hover:bg-indigo-600 cursor-col-resize transition-colors z-50 shrink-0"
+                                                onMouseDown={startResizingAi}
+                                            />
+                                            <div style={{ width: aiPanelWidth }} className="h-full shrink-0 relative z-20">
+                                                <AIChat 
+                                                    isOpen={isAiOpen} 
+                                                    onClose={() => setIsAiOpen(false)}
+                                                    activeFile={activeFile}
+                                                    aiTrigger={aiTrigger}
+                                                    onActionHandled={() => setAiTrigger(null)}
+                                                />
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                                 <OutputPanel 
                                     isOpen={isOutputOpen}

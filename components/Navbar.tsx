@@ -1,15 +1,17 @@
 import React from 'react';
-import { Map, Plus, Code2, Trophy, Terminal, Home } from 'lucide-react';
+import { Map, Plus, Code2, Trophy, Terminal, Home, LogIn, LogOut } from 'lucide-react';
 import { UserProfile } from '../types';
 
 interface NavbarProps {
   activeView: 'home' | 'editor' | 'dsa';
   onNavigate: (view: 'home' | 'editor' | 'dsa') => void;
-  user: UserProfile;
+  user: UserProfile | null;
   onAddFile: () => void;
+  onLogin: () => void;
+  onLogout: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ activeView, onNavigate, user, onAddFile }) => {
+export const Navbar: React.FC<NavbarProps> = ({ activeView, onNavigate, user, onAddFile, onLogin, onLogout }) => {
   return (
     <div className="h-16 border-b border-zinc-900 bg-black flex items-center justify-between px-6 shrink-0 z-50">
       {/* Left: Brand & Nav */}
@@ -66,23 +68,42 @@ export const Navbar: React.FC<NavbarProps> = ({ activeView, onNavigate, user, on
 
         <div className="h-6 w-px bg-zinc-800 mx-2"></div>
 
-        <div className="flex items-center gap-3 pl-2">
-            <div className="text-right hidden sm:block">
-                <div className="text-sm font-bold text-white leading-none mb-1">{user.name}</div>
-                <div className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider flex items-center justify-end gap-1.5">
-                    <span className="text-indigo-400">{user.level}</span>
-                    <span className="w-1 h-1 rounded-full bg-zinc-700"></span>
-                    <span className="flex items-center gap-0.5 text-yellow-500">
-                        <Trophy className="w-3 h-3" />
-                        {user.points}
-                    </span>
+        {user ? (
+            <div className="flex items-center gap-3 pl-2 group relative">
+                <div className="text-right hidden sm:block">
+                    <div className="text-sm font-bold text-white leading-none mb-1">{user.name}</div>
+                    <div className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider flex items-center justify-end gap-1.5">
+                        <span className="text-indigo-400">{user.level}</span>
+                        <span className="w-1 h-1 rounded-full bg-zinc-700"></span>
+                        <span className="flex items-center gap-0.5 text-yellow-500">
+                            <Trophy className="w-3 h-3" />
+                            {user.points}
+                        </span>
+                    </div>
+                </div>
+                <div className="relative">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-inner border border-white/10 cursor-pointer">
+                        {user.name.charAt(0).toUpperCase()}
+                    </div>
+                    {/* Hover Logout Button */}
+                    <button 
+                        onClick={onLogout}
+                        className="absolute top-10 right-0 w-28 bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-red-500/10 hover:border-red-500/50 p-2 rounded-lg text-xs font-medium flex items-center gap-2 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all shadow-xl z-50"
+                    >
+                        <LogOut className="w-3.5 h-3.5" />
+                        Sign Out
+                    </button>
                 </div>
             </div>
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-inner border border-white/10 relative">
-                {user.name.charAt(0)}
-                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-black"></div>
-            </div>
-        </div>
+        ) : (
+            <button
+                onClick={onLogin}
+                className="flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 rounded-lg text-sm font-medium transition-all"
+            >
+                <LogIn className="w-4 h-4" />
+                Sign In
+            </button>
+        )}
       </div>
     </div>
   );

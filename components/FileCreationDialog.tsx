@@ -9,15 +9,15 @@ interface FileCreationDialogProps {
   initialLanguage?: Language;
 }
 
-const languages: { id: Language; name: string; icon: React.ReactNode; color: string }[] = [
-  { id: 'javascript', name: 'JavaScript', icon: <FileCode2 className="w-5 h-5" />, color: 'text-yellow-400' },
-  { id: 'typescript', name: 'TypeScript', icon: <FileCode2 className="w-5 h-5" />, color: 'text-blue-400' },
-  { id: 'python', name: 'Python', icon: <FileType className="w-5 h-5" />, color: 'text-green-400' },
-  { id: 'java', name: 'Java', icon: <Coffee className="w-5 h-5" />, color: 'text-red-400' },
-  { id: 'cpp', name: 'C++', icon: <Braces className="w-5 h-5" />, color: 'text-indigo-400' },
-  { id: 'html', name: 'HTML', icon: <Code2 className="w-5 h-5" />, color: 'text-orange-400' },
-  { id: 'css', name: 'CSS', icon: <Globe className="w-5 h-5" />, color: 'text-cyan-400' },
-  { id: 'json', name: 'JSON', icon: <FileJson className="w-5 h-5" />, color: 'text-purple-400' },
+const languages: { id: Language; name: string; icon: React.ReactNode; color: string; extensions: string[] }[] = [
+  { id: 'javascript', name: 'JavaScript', icon: <FileCode2 className="w-5 h-5" />, color: 'text-yellow-400', extensions: ['js', 'jsx', 'mjs'] },
+  { id: 'typescript', name: 'TypeScript', icon: <FileCode2 className="w-5 h-5" />, color: 'text-blue-400', extensions: ['ts', 'tsx'] },
+  { id: 'python', name: 'Python', icon: <FileType className="w-5 h-5" />, color: 'text-green-400', extensions: ['py'] },
+  { id: 'java', name: 'Java', icon: <Coffee className="w-5 h-5" />, color: 'text-red-400', extensions: ['java'] },
+  { id: 'cpp', name: 'C++', icon: <Braces className="w-5 h-5" />, color: 'text-indigo-400', extensions: ['cpp', 'cc', 'cxx', 'h', 'hpp'] },
+  { id: 'html', name: 'HTML', icon: <Code2 className="w-5 h-5" />, color: 'text-orange-400', extensions: ['html', 'htm'] },
+  { id: 'css', name: 'CSS', icon: <Globe className="w-5 h-5" />, color: 'text-cyan-400', extensions: ['css', 'scss'] },
+  { id: 'json', name: 'JSON', icon: <FileJson className="w-5 h-5" />, color: 'text-purple-400', extensions: ['json'] },
 ];
 
 export const FileCreationDialog: React.FC<FileCreationDialogProps> = ({ isOpen, onClose, onCreate, initialLanguage }) => {
@@ -33,6 +33,24 @@ export const FileCreationDialog: React.FC<FileCreationDialogProps> = ({ isOpen, 
       setError('');
     }
   }, [isOpen, initialLanguage]);
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setFileName(val);
+    setError('');
+
+    // Auto-detect language from extension
+    const parts = val.split('.');
+    if (parts.length > 1) {
+        const ext = parts.pop()?.toLowerCase();
+        if (ext) {
+            const matchedLang = languages.find(l => l.extensions.includes(ext));
+            if (matchedLang) {
+                setSelectedLang(matchedLang.id);
+            }
+        }
+    }
+  };
 
   const handleCreate = () => {
     if (!fileName.trim()) {
@@ -68,20 +86,18 @@ export const FileCreationDialog: React.FC<FileCreationDialogProps> = ({ isOpen, 
         <div className="p-6 space-y-6">
           {/* Filename Input */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-zinc-400">Filename (without extension)</label>
+            <label className="text-sm font-medium text-zinc-400">Filename</label>
             <input
               type="text"
               value={fileName}
-              onChange={(e) => {
-                  setFileName(e.target.value);
-                  setError('');
-              }}
-              placeholder="e.g., main, script, algorithm"
+              onChange={handleNameChange}
+              placeholder="e.g., main.py"
               className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
               autoFocus
               onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
             />
             {error && <p className="text-xs text-red-400">{error}</p>}
+            <p className="text-[10px] text-zinc-600">Tip: Adding an extension auto-selects the language.</p>
           </div>
 
           {/* Language Selection */}

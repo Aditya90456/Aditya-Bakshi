@@ -14,7 +14,15 @@
     "@google/genai": "^1.30.0",
     "react-markdown": "^10.1.0",
     "react": "^19.2.0",
-    "prismjs": "^1.30.0"
+    "prismjs": "^1.30.0",
+    "dotenv": "^17.2.3",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "nodemailer": "^7.0.11",
+    "path": "^0.12.7",
+    "fs": "^0.0.1-security",
+    "url": "^0.11.4",
+    "firebase": "^12.6.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
