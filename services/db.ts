@@ -182,7 +182,7 @@ class DatabaseService {
                      this.saveCurrentUser(data.user);
                      return data.user;
                  }
-             } catch (e) { console.warn("Cloud sync failed"); }
+             } catch (e) { /* silent fail */ }
         }
 
         // Local Sync

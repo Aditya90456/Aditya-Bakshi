@@ -24,7 +24,7 @@ try {
     auth = getAuth(app);
     googleProvider = new GoogleAuthProvider();
   } else {
-    console.warn("[Firebase] Config missing or incomplete. Google Auth will be simulated.");
+    // Config missing - silent fallback to simulation
   }
 } catch (error) {
   console.error("Firebase Initialization Error:", error);

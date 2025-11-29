@@ -300,11 +300,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(({ file, onChange, o
                 <Terminal className="w-3 h-3" />
                 <span>Ready</span>
              </div>
-             {/* Errors / Warnings Placeholder */}
-             <div className="flex items-center gap-1 hover:text-red-400 transition-colors cursor-pointer">
-                <AlertCircle className="w-3 h-3" />
-                <span>0 Errors</span>
-             </div>
          </div>
 
          <div className="flex items-center gap-6">
