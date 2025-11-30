@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 dotenv.config();
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
@@ -39,7 +39,7 @@ const writeUsers = (users) => {
     fs.writeFileSync(DB_FILE, JSON.stringify(users, null, 2));
 };
 
-// --- ROUTES ---
+// --- API ROUTES ---
 
 // 1. Login
 app.post('/api/auth/login', (req, res) => {
@@ -105,7 +105,19 @@ app.post('/api/user/sync', (req, res) => {
     res.json({ user });
 });
 
+// --- PRODUCTION SERVING ---
+// If running in production, serve the React build
+if (process.env.NODE_ENV === 'production') {
+    app.use(express.static(path.join(__dirname, 'dist')));
+    
+    app.get('*', (req, res) => {
+        // Exclude API routes from wildcard
+        if (req.path.startsWith('/api')) return res.status(404).json({ error: 'API Not Found' });
+        res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+    });
+}
+
 app.listen(PORT, () => {
-  console.log(`Codex Backend running on http://localhost:${PORT}`);
+  console.log(`Codex Backend running on port ${PORT}`);
   console.log(`Database file: ${DB_FILE}`);
 });

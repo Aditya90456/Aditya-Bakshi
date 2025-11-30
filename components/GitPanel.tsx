@@ -1,8 +1,9 @@
+
 import React, { useState, useMemo } from 'react';
 import { 
   GitGraph, GitCommit, Play, Plus, Minus, History, 
   ArrowUpCircle, ArrowDownCircle, Check, Loader2,
-  GitBranch, RefreshCw, Cloud, Github
+  GitBranch, RefreshCw, Cloud, Github, FileDiff, X, Split
 } from 'lucide-react';
 import { FileData, GitState, GitChangeType } from '../types';
 
@@ -39,6 +40,7 @@ export const GitPanel: React.FC<GitPanelProps> = ({
   const [isPulling, setIsPulling] = useState(false);
   const [activeTab, setActiveTab] = useState<'changes' | 'history'>('changes');
   const [remoteInput, setRemoteInput] = useState('');
+  const [diffFileId, setDiffFileId] = useState<string | null>(null);
 
   // Calculate changes derived from current files vs last committed state
   const changes = useMemo(() => {
@@ -66,6 +68,18 @@ export const GitPanel: React.FC<GitPanelProps> = ({
   const unstagedChanges = useMemo(() => {
     return changes.filter(c => !gitState.stagedFiles.includes(c.file.id));
   }, [changes, gitState.stagedFiles]);
+
+  // Diff Data
+  const diffData = useMemo(() => {
+      if (!diffFileId) return null;
+      const file = files.find(f => f.id === diffFileId);
+      if (!file) return null;
+      
+      const original = gitState.lastCommittedContent[file.id] || '';
+      const modified = file.content;
+      
+      return { file, original, modified };
+  }, [diffFileId, files, gitState.lastCommittedContent]);
 
   const handlePush = async () => {
     setIsPushing(true);
@@ -134,9 +148,74 @@ export const GitPanel: React.FC<GitPanelProps> = ({
     );
   }
 
+  // Helper to render diff content with line numbers
+  const DiffContent = ({ content, type }: { content: string, type: 'original' | 'modified' }) => {
+     if (!content) return <span className="text-zinc-700 italic px-4">// Empty file</span>;
+     
+     const lines = content.split('\n');
+     return (
+        <div className="flex flex-col min-w-max">
+            {lines.map((line, i) => (
+                <div key={i} className={`flex ${type === 'original' ? 'bg-red-900/10' : 'bg-green-900/10'}`}>
+                    <div className="w-10 shrink-0 text-right pr-3 text-zinc-600 select-none bg-zinc-950/30 border-r border-zinc-800/50">
+                        {i + 1}
+                    </div>
+                    <div className={`px-4 text-zinc-300 whitespace-pre font-mono ${type === 'original' ? 'text-red-200/70' : 'text-green-200/90'}`}>
+                        {line || ' '}
+                    </div>
+                </div>
+            ))}
+        </div>
+     );
+  }
+
   return (
     <div className="flex flex-col h-full bg-black text-zinc-300">
       
+      {/* Diff View Modal */}
+      {diffData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-zinc-950 border border-zinc-800 w-full h-full max-w-6xl rounded-xl flex flex-col overflow-hidden shadow-2xl">
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 bg-zinc-900/50">
+                  <div className="flex items-center gap-3">
+                      <FileDiff className="w-5 h-5 text-indigo-400" />
+                      <span className="font-bold text-white">{diffData.file.name}</span>
+                      <span className="text-xs text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
+                          {diffData.original ? 'Modified' : 'New File'}
+                      </span>
+                  </div>
+                  <button onClick={() => setDiffFileId(null)} className="p-1.5 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-white transition-colors">
+                      <X className="w-5 h-5" />
+                  </button>
+              </div>
+              
+              {/* Content */}
+              <div className="flex-1 flex overflow-hidden font-mono text-xs">
+                  {/* Original */}
+                  <div className="flex-1 flex flex-col border-r border-zinc-800 min-w-0 bg-red-950/5">
+                      <div className="px-4 py-2 text-[10px] uppercase font-bold text-zinc-500 border-b border-zinc-900/50 bg-zinc-950/30 flex justify-between">
+                          <span>Original (Head)</span>
+                      </div>
+                      <div className="flex-1 overflow-auto custom-scrollbar">
+                         <DiffContent content={diffData.original} type="original" />
+                      </div>
+                  </div>
+                  
+                  {/* Modified */}
+                  <div className="flex-1 flex flex-col min-w-0 bg-green-950/5">
+                      <div className="px-4 py-2 text-[10px] uppercase font-bold text-zinc-500 border-b border-zinc-900/50 bg-zinc-950/30 flex justify-between">
+                          <span>Modified (Working Tree)</span>
+                      </div>
+                      <div className="flex-1 overflow-auto custom-scrollbar">
+                         <DiffContent content={diffData.modified} type="modified" />
+                      </div>
+                  </div>
+              </div>
+          </div>
+        </div>
+      )}
+
       {/* Git Header / Actions */}
       <div className="p-4 border-b border-zinc-900 space-y-4">
         <div className="flex items-center justify-between">
@@ -237,21 +316,31 @@ export const GitPanel: React.FC<GitPanelProps> = ({
                 <div className="px-2 text-xs text-zinc-600 italic">No staged changes</div>
               ) : (
                 stagedChanges.map((change) => (
-                  <div key={change.file.id} className="group flex items-center justify-between p-2 rounded hover:bg-zinc-900">
+                  <div 
+                    key={change.file.id} 
+                    className="group flex items-center justify-between p-2 rounded hover:bg-zinc-900 cursor-pointer"
+                    onClick={() => setDiffFileId(change.file.id)}
+                  >
                     <div className="flex items-center gap-2 overflow-hidden">
                        <span className={`text-[10px] font-bold uppercase w-4 ${
                           change.type === 'created' ? 'text-green-500' : 'text-yellow-500'
                        }`}>
                           {change.type === 'created' ? 'U' : 'M'}
                        </span>
-                       <span className="text-sm truncate text-zinc-300">{change.file.name}</span>
+                       <span className="text-sm truncate text-zinc-300 group-hover:text-white transition-colors">{change.file.name}</span>
                     </div>
-                    <button 
-                      onClick={() => onUnstage(change.file.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-white"
-                    >
-                      <Minus className="w-3 h-3" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                        <span title="View Diff" className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-indigo-400">
+                            <FileDiff className="w-3 h-3" />
+                        </span>
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onUnstage(change.file.id); }}
+                            className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-white"
+                            title="Unstage"
+                        >
+                            <Minus className="w-3 h-3" />
+                        </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -267,21 +356,31 @@ export const GitPanel: React.FC<GitPanelProps> = ({
                  <div className="px-2 text-xs text-zinc-600 italic">Working tree clean</div>
               ) : (
                 unstagedChanges.map((change) => (
-                  <div key={change.file.id} className="group flex items-center justify-between p-2 rounded hover:bg-zinc-900">
+                  <div 
+                    key={change.file.id} 
+                    className="group flex items-center justify-between p-2 rounded hover:bg-zinc-900 cursor-pointer"
+                    onClick={() => setDiffFileId(change.file.id)}
+                  >
                      <div className="flex items-center gap-2 overflow-hidden">
                        <span className={`text-[10px] font-bold uppercase w-4 ${
                           change.type === 'created' ? 'text-green-500' : 'text-yellow-500'
                        }`}>
                           {change.type === 'created' ? 'U' : 'M'}
                        </span>
-                       <span className="text-sm truncate text-zinc-300">{change.file.name}</span>
+                       <span className="text-sm truncate text-zinc-300 group-hover:text-white transition-colors">{change.file.name}</span>
                     </div>
-                    <button 
-                      onClick={() => onStage(change.file.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-white"
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                        <span title="View Diff" className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-indigo-400">
+                            <FileDiff className="w-3 h-3" />
+                        </span>
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onStage(change.file.id); }}
+                            className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-white"
+                            title="Stage"
+                        >
+                            <Plus className="w-3 h-3" />
+                        </button>
+                    </div>
                   </div>
                 ))
               )}

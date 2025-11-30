@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Navbar } from './components/Navbar';
@@ -10,6 +11,7 @@ import { FileCreationDialog } from './components/FileCreationDialog';
 import { SnippetModal } from './components/SnippetModal';
 import { Home } from './components/Home';
 import { AuthModal } from './components/AuthModal';
+import { ToastContainer, ToastMessage } from './components/Toast';
 import { FileData, Language, LogEntry, UserProfile, DSATopic, GitState, Commit } from './types';
 import { simulateCodeExecution, analyzeCodeDryRun, generateUnitTests } from './services/geminiService';
 import { db } from './services/db';
@@ -77,6 +79,9 @@ const App: React.FC = () => {
 
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Toasts
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   // Load User & Cloud Files
   useEffect(() => {
@@ -163,15 +168,25 @@ const App: React.FC = () => {
     };
   }, [isDraggingAi]);
 
+  // --- TOAST HELPER ---
+  const showToast = (message: string, type: ToastMessage['type'] = 'info') => {
+      const id = Date.now().toString() + Math.random();
+      setToasts(prev => [...prev, { id, message, type }]);
+  };
+
+  const dismissToast = (id: string) => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
   // --- HANDLERS ---
   const handleLogin = async (userData: UserProfile) => {
       setUser(userData);
-      addLog('success', `Welcome back, ${userData.name}!`);
+      showToast(`Welcome back, ${userData.name}!`, 'success');
       // Sync Cloud Files if available
       if (userData.files && userData.files.length > 0) {
           setFiles(userData.files);
           setActiveFileId(userData.files[0].id);
-          addLog('info', 'Cloud projects synced.');
+          showToast('Cloud projects synced', 'info');
       }
   };
 
@@ -181,13 +196,13 @@ const App: React.FC = () => {
       setViewMode('home');
       setFiles(INITIAL_FILES);
       setActiveFileId(INITIAL_FILES[0].id);
-      addLog('info', 'Signed out successfully.');
+      showToast('Signed out successfully', 'info');
   };
 
   const handleCompleteTopic = async (topicId: string, points: number) => {
       if (!user) {
           setIsAuthModalOpen(true);
-          addLog('warn', 'Please sign in to track progress.');
+          showToast('Please sign in to track progress', 'loading');
           return;
       }
       if (!user.email) return;
@@ -201,9 +216,9 @@ const App: React.FC = () => {
         
         const saved = await db.syncUser(updatedUser);
         setUser(saved);
-        addLog('success', `Topic Completed! +${points} XP`);
+        showToast(`Topic Completed! +${points} XP`, 'success');
       } catch (e) {
-        addLog('error', 'Failed to save progress.');
+        showToast('Failed to save progress', 'error');
       }
   };
 
@@ -233,6 +248,7 @@ const App: React.FC = () => {
       setActiveFileId(newId);
       setViewMode('editor');
       setActiveProblem(null);
+      showToast(`Created ${fullFileName}`, 'success');
   };
 
   const handleSolveProblem = (topic: DSATopic) => {
@@ -275,9 +291,14 @@ const App: React.FC = () => {
           name: newName,
           content: newContent
       } : f));
+      showToast(`Switched to ${newLang}`, 'info');
   };
 
   const addLog = (type: LogEntry['type'], message: string) => {
+    // If it's a success or error log, show a toast as well
+    if (type === 'success') showToast(message, 'success');
+    if (type === 'error') showToast(message, 'error');
+
     setOutputLogs(prev => [...prev, {
       id: Date.now().toString() + Math.random(),
       type,
@@ -289,6 +310,7 @@ const App: React.FC = () => {
   const handleGitInit = () => {
     setGitState(prev => ({ ...prev, isInitialized: true, lastCommittedContent: {} }));
     addLog('system', 'Git repository initialized.');
+    showToast('Repository initialized', 'success');
   };
 
   const handleGitStage = (fileId: string) => {
@@ -306,7 +328,7 @@ const App: React.FC = () => {
     if (gitState.stagedFiles.length === 0) return;
     if (!user) {
         setIsAuthModalOpen(true);
-        addLog('warn', 'Sign in to commit.');
+        showToast('Sign in to commit', 'loading');
         return;
     }
 
@@ -335,20 +357,24 @@ const App: React.FC = () => {
 
   const handleGitPush = async () => {
     if (!user) { setIsAuthModalOpen(true); return; }
-    if (!gitState.remoteUrl) { addLog('error', 'No remote configured.'); return; }
+    if (!gitState.remoteUrl) { showToast('No remote configured', 'error'); return; }
+    showToast('Pushing to remote...', 'loading');
     await new Promise(resolve => setTimeout(resolve, 1500));
     addLog('success', `Pushed to ${gitState.currentBranch} at ${gitState.remoteUrl}`);
   };
 
   const handleGitPull = async () => {
-      if (!gitState.remoteUrl) { addLog('error', 'No remote configured.'); return; }
+      if (!gitState.remoteUrl) { showToast('No remote configured', 'error'); return; }
+      showToast('Pulling from remote...', 'loading');
       await new Promise(resolve => setTimeout(resolve, 1500));
       addLog('info', 'Already up to date.');
+      showToast('Already up to date', 'success');
   };
 
   const handleGitRemoteAdd = (url: string) => {
       setGitState(prev => ({ ...prev, remoteUrl: url }));
       addLog('system', `Remote origin set to ${url}`);
+      showToast('Remote origin updated', 'success');
   };
 
   const handleRun = async () => {
@@ -418,8 +444,9 @@ const App: React.FC = () => {
   const handleGenerateTests = async () => {
     if (!activeFile) return;
     setIsRunning(true);
+    showToast('Generating tests...', 'loading');
     addLog('system', `Generating unit tests...`);
-    setIsOutputOpen(true);
+    
     try {
         const testCode = await generateUnitTests(activeFile.content, activeFile.language, activeFile.name);
         let testFilename = activeFile.name.replace(/\.[^/.]+$/, "");
@@ -450,11 +477,14 @@ const App: React.FC = () => {
   const handleSnippetInsert = (code: string) => {
     if (editorRef.current) {
       editorRef.current.insertText(code);
+      showToast('Snippet inserted', 'success');
     }
   };
 
   return (
     <div className="flex flex-col h-screen bg-codex-bg text-zinc-100 overflow-hidden font-sans">
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
       <FileCreationDialog 
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
