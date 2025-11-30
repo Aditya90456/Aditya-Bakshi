@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     // Polyfill process.env for the browser so the Google GenAI SDK works
     define: {
-      'process.env': env
+      'process.env': JSON.stringify(env)
     },
     server: {
       port: 3000,
