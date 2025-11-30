@@ -25,7 +25,6 @@ export const initChat = () => {
     config: {
       systemInstruction: SYSTEM_INSTRUCTION,
       temperature: 0.7,
-      maxOutputTokens: 2000,
     },
   });
 };
