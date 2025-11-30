@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   GitGraph, GitCommit, Play, Plus, Minus, History, 
   ArrowUpCircle, ArrowDownCircle, Check, Loader2,
-  GitBranch, RefreshCw, Cloud, Github, FileDiff, X, Split
+  GitBranch, RefreshCw, Cloud, Github, FileDiff, X, Split, AlertCircle
 } from 'lucide-react';
 import { FileData, GitState, GitChangeType } from '../types';
 
@@ -169,6 +169,8 @@ export const GitPanel: React.FC<GitPanelProps> = ({
      );
   }
 
+  const isRemoteConfigured = !!gitState.remoteUrl;
+
   return (
     <div className="flex flex-col h-full bg-black text-zinc-300">
       
@@ -226,18 +228,26 @@ export const GitPanel: React.FC<GitPanelProps> = ({
           <div className="flex items-center gap-2">
              <button 
                onClick={handlePull} 
-               disabled={isPulling}
-               className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 rounded-md text-xs font-medium text-zinc-300 hover:text-white transition-all disabled:opacity-50"
-               title="Pull from Remote"
+               disabled={isPulling || !isRemoteConfigured}
+               className={`flex items-center gap-2 px-3 py-1.5 border rounded-md text-xs font-medium transition-all ${
+                   !isRemoteConfigured 
+                   ? 'bg-zinc-900 border-zinc-800 text-zinc-600 opacity-50 cursor-not-allowed' 
+                   : 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800 text-zinc-300 hover:text-white'
+               }`}
+               title={!isRemoteConfigured ? "Add a Remote Origin to pull changes" : "Pull from Remote"}
              >
                {isPulling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowDownCircle className="w-3.5 h-3.5" />}
                Pull
              </button>
              <button 
                onClick={handlePush} 
-               disabled={isPushing}
-               className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 rounded-md text-xs font-medium text-zinc-300 hover:text-white transition-all disabled:opacity-50"
-               title="Push to Remote"
+               disabled={isPushing || !isRemoteConfigured}
+               className={`flex items-center gap-2 px-3 py-1.5 border rounded-md text-xs font-medium transition-all ${
+                   !isRemoteConfigured 
+                   ? 'bg-zinc-900 border-zinc-800 text-zinc-600 opacity-50 cursor-not-allowed' 
+                   : 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800 text-zinc-300 hover:text-white'
+               }`}
+               title={!isRemoteConfigured ? "Add a Remote Origin to push changes" : "Push to Remote"}
              >
                {isPushing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowUpCircle className="w-3.5 h-3.5" />}
                Push
@@ -248,17 +258,20 @@ export const GitPanel: React.FC<GitPanelProps> = ({
         {/* Remote Config */}
         {!gitState.remoteUrl ? (
            <div className="space-y-1">
-              <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Remote Origin</label>
+              <label className="text-[10px] uppercase text-indigo-400 font-bold tracking-wider flex items-center gap-1">
+                 <AlertCircle className="w-3 h-3" />
+                 Configure Remote
+              </label>
               <div className="flex gap-2">
                   <input 
                     value={remoteInput} 
                     onChange={(e) => setRemoteInput(e.target.value)}
                     placeholder="user/repo"
-                    className="flex-1 bg-zinc-900 border border-zinc-800 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-indigo-500 placeholder-zinc-600"
+                    className="flex-1 bg-zinc-900 border border-zinc-800 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-indigo-500 placeholder-zinc-600 focus:ring-1 focus:ring-indigo-500/20"
                   />
                   <button 
                     onClick={handleRemoteAdd}
-                    className="px-2 bg-zinc-800 hover:bg-zinc-700 rounded border border-zinc-700"
+                    className="px-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded border border-transparent"
                     title="Add Remote"
                   >
                     <Plus className="w-4 h-4" />
@@ -266,7 +279,7 @@ export const GitPanel: React.FC<GitPanelProps> = ({
               </div>
            </div>
         ) : (
-          <div className="flex items-center justify-between bg-zinc-900/50 p-2 rounded border border-zinc-800">
+          <div className="flex items-center justify-between bg-zinc-900/50 p-2 rounded border border-zinc-800 group">
               <div className="flex items-center gap-2 text-xs text-zinc-300 truncate">
                 <Github className="w-3.5 h-3.5" />
                 <span className="font-mono">{repoName || gitState.remoteUrl}</span>

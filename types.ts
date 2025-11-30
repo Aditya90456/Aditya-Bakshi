@@ -34,6 +34,26 @@ export interface LogEntry {
   timestamp: number;
 }
 
+// GIT TYPES
+export type GitChangeType = 'modified' | 'created' | 'deleted';
+
+export interface Commit {
+  id: string;
+  message: string;
+  author: string;
+  timestamp: number;
+  changesCount: number;
+}
+
+export interface GitState {
+  isInitialized: boolean;
+  remoteUrl: string | null;
+  currentBranch: string;
+  commits: Commit[];
+  stagedFiles: string[]; // IDs of files currently staged
+  lastCommittedContent: Record<string, string>; // Snapshot of file content at last commit: { fileId: content }
+}
+
 export interface UserProfile {
   name: string;
   email?: string; // Added for DB
@@ -41,6 +61,7 @@ export interface UserProfile {
   points: number;
   completedTopics: string[]; // List of Topic IDs
   files?: FileData[]; // Cloud Save: User's files
+  gitState?: GitState; // Cloud Save: User's git history
 }
 
 export interface TestCase {
@@ -64,24 +85,4 @@ export interface DSATopic {
     language: Language;
     code: string;
   };
-}
-
-// GIT TYPES
-export type GitChangeType = 'modified' | 'created' | 'deleted';
-
-export interface Commit {
-  id: string;
-  message: string;
-  author: string;
-  timestamp: number;
-  changesCount: number;
-}
-
-export interface GitState {
-  isInitialized: boolean;
-  remoteUrl: string | null;
-  currentBranch: string;
-  commits: Commit[];
-  stagedFiles: string[]; // IDs of files currently staged
-  lastCommittedContent: Record<string, string>; // Snapshot of file content at last commit: { fileId: content }
 }

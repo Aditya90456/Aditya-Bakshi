@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Increased limit for file/git data
 
 // --- DATABASE SETUP (Simple JSON File) ---
 const __filename = fileURLToPath(import.meta.url);
@@ -69,7 +69,8 @@ app.post('/api/auth/signup', (req, res) => {
         level: 'Novice',
         points: 0,
         completedTopics: [],
-        files: [] // Cloud save: files
+        files: [], // Cloud save: files
+        gitState: null
     };
 
     users.push(newUser);
@@ -78,9 +79,9 @@ app.post('/api/auth/signup', (req, res) => {
     res.json({ user: newUser });
 });
 
-// 3. Sync User Data (Files, Points, Topics)
+// 3. Sync User Data (Files, Points, Topics, Git)
 app.post('/api/user/sync', (req, res) => {
-    const { email, files, completedTopics, points } = req.body;
+    const { email, files, completedTopics, points, gitState } = req.body;
     const users = readUsers();
     const index = users.findIndex(u => u.email === email);
 
@@ -92,6 +93,7 @@ app.post('/api/user/sync', (req, res) => {
     if (files) user.files = files;
     if (completedTopics) user.completedTopics = completedTopics;
     if (points !== undefined) user.points = points;
+    if (gitState) user.gitState = gitState;
     
     // Recalculate level based on points
     if (user.points >= 1500) user.level = 'Architect';

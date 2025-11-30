@@ -83,6 +83,8 @@ const App: React.FC = () => {
   // Toasts
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
+  const [gitState, setGitState] = useState<GitState>(INITIAL_GIT_STATE);
+
   // Load User & Cloud Files
   useEffect(() => {
     const loadUser = async () => {
@@ -93,6 +95,9 @@ const App: React.FC = () => {
                 if (currentUser.files && currentUser.files.length > 0) {
                     setFiles(currentUser.files);
                     setActiveFileId(currentUser.files[0].id);
+                }
+                if (currentUser.gitState) {
+                    setGitState(currentUser.gitState);
                 }
             }
         } catch (e) {
@@ -109,7 +114,7 @@ const App: React.FC = () => {
       const timeoutId = setTimeout(async () => {
           setIsSaving(true);
           try {
-              const updatedUser = { ...user, files: files };
+              const updatedUser = { ...user, files: files, gitState: gitState };
               const savedUser = await db.syncUser(updatedUser);
               setUser(savedUser);
           } catch (e) {
@@ -120,7 +125,7 @@ const App: React.FC = () => {
       }, 3000); // 3-second debounce
 
       return () => clearTimeout(timeoutId);
-  }, [files, user?.email]); // Only re-run if files change or user changes
+  }, [files, user?.email, gitState]); // Auto-save when files or git state changes
 
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [aiTrigger, setAiTrigger] = useState<{ action: 'debug' | 'explain' | 'test', code: string } | null>(null);
@@ -133,7 +138,6 @@ const App: React.FC = () => {
   const [outputMode, setOutputMode] = useState<'run' | 'dry-run' | 'preview'>('run');
   const [previewContent, setPreviewContent] = useState<string>('');
 
-  const [gitState, setGitState] = useState<GitState>(INITIAL_GIT_STATE);
   const editorRef = useRef<EditorHandle>(null);
   const activeFile = activeFileId ? files.find(f => f.id === activeFileId) : null;
 
@@ -186,7 +190,10 @@ const App: React.FC = () => {
       if (userData.files && userData.files.length > 0) {
           setFiles(userData.files);
           setActiveFileId(userData.files[0].id);
-          showToast('Cloud projects synced', 'info');
+      }
+      if (userData.gitState) {
+          setGitState(userData.gitState);
+          showToast('Git state restored', 'info');
       }
   };
 
@@ -195,6 +202,7 @@ const App: React.FC = () => {
       setUser(null);
       setViewMode('home');
       setFiles(INITIAL_FILES);
+      setGitState(INITIAL_GIT_STATE);
       setActiveFileId(INITIAL_FILES[0].id);
       showToast('Signed out successfully', 'info');
   };
@@ -357,18 +365,66 @@ const App: React.FC = () => {
 
   const handleGitPush = async () => {
     if (!user) { setIsAuthModalOpen(true); return; }
-    if (!gitState.remoteUrl) { showToast('No remote configured', 'error'); return; }
+    
+    // Check remote configuration strictly
+    if (!gitState.remoteUrl) { 
+        showToast('Push Failed: No remote configured', 'error'); 
+        addLog('error', 'Please add a Remote Origin (e.g., user/repo) in the Git Panel before pushing.');
+        return; 
+    }
+    
+    setIsSaving(true);
     showToast('Pushing to remote...', 'loading');
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    addLog('success', `Pushed to ${gitState.currentBranch} at ${gitState.remoteUrl}`);
+    
+    try {
+        const updatedUser = { 
+            ...user, 
+            files: files,
+            gitState: gitState
+        };
+        const savedUser = await db.syncUser(updatedUser);
+        setUser(savedUser);
+        
+        // Sim delay for effect
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        addLog('success', `Pushed to ${gitState.currentBranch} at ${gitState.remoteUrl}`);
+    } catch (e: any) {
+        const msg = e.message || 'Push failed. Check connection.';
+        showToast(msg, 'error');
+        addLog('error', `Push failed: ${msg}`);
+    } finally {
+        setIsSaving(false);
+    }
   };
 
   const handleGitPull = async () => {
-      if (!gitState.remoteUrl) { showToast('No remote configured', 'error'); return; }
+      if (!user) { setIsAuthModalOpen(true); return; }
+      if (!gitState.remoteUrl) { 
+          showToast('Pull Failed: No remote configured', 'error'); 
+          addLog('error', 'Please add a Remote Origin first.');
+          return; 
+      }
+      
+      setIsSaving(true);
       showToast('Pulling from remote...', 'loading');
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      addLog('info', 'Already up to date.');
-      showToast('Already up to date', 'success');
+      
+      try {
+          // Re-fetch user to get latest state
+          const latestUser = await db.login(user.email!);
+          if (latestUser && latestUser.gitState) {
+              setGitState(latestUser.gitState);
+              if (latestUser.files) setFiles(latestUser.files);
+              
+              addLog('info', 'Successfully pulled latest changes.');
+              showToast('Pull successful', 'success');
+          } else {
+              addLog('info', 'Already up to date.');
+          }
+      } catch (e) {
+          showToast('Pull failed', 'error');
+      } finally {
+          setIsSaving(false);
+      }
   };
 
   const handleGitRemoteAdd = (url: string) => {

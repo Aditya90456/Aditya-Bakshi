@@ -1,3 +1,4 @@
+
 import { UserProfile, DSATopic, FileData } from '../types';
 import { isFirebaseReady, signInWithGoogle, logoutFirebase } from './firebase';
 
@@ -90,9 +91,13 @@ class DatabaseService {
     }
 
     private initializeQuestions() {
-        const existing = localStorage.getItem(this.questionsKey);
-        if (!existing) {
-            localStorage.setItem(this.questionsKey, JSON.stringify(FULL_QUESTIONS)); 
+        try {
+            const existing = localStorage.getItem(this.questionsKey);
+            if (!existing) {
+                localStorage.setItem(this.questionsKey, JSON.stringify(FULL_QUESTIONS)); 
+            }
+        } catch (e) {
+            console.error("Failed to initialize DB (Storage Full?)", e);
         }
     }
 
@@ -105,8 +110,6 @@ class DatabaseService {
 
     async login(email: string): Promise<UserProfile | null> {
         // Try Backend
-        // For development, assume backend might be running on localhost via proxy
-        // Since checkBackend is naive, we can attempt fetch directly and fallback
         try {
             const res = await fetch(`${this.baseUrl}/auth/login`, {
                 method: 'POST',
@@ -167,7 +170,7 @@ class DatabaseService {
         return newUser;
     }
 
-    // Sync whole user state (files, progress) to Cloud
+    // Sync whole user state (files, progress, gitState) to Cloud
     async syncUser(user: UserProfile): Promise<UserProfile> {
         if (!user.email) return user;
 
@@ -180,7 +183,8 @@ class DatabaseService {
                     email: user.email, 
                     files: user.files, 
                     completedTopics: user.completedTopics,
-                    points: user.points 
+                    points: user.points,
+                    gitState: user.gitState
                 })
             });
             if (res.ok) {
@@ -192,12 +196,17 @@ class DatabaseService {
         } catch (e) { /* silent fail */ }
 
         // Local Sync
-        const users = this.getLocalUsers();
-        const idx = users.findIndex(u => u.email === user.email);
-        if (idx !== -1) {
-            users[idx] = user;
-            this.saveLocalUsers(users);
-            this.saveCurrentUser(user);
+        try {
+            const users = this.getLocalUsers();
+            const idx = users.findIndex(u => u.email === user.email);
+            if (idx !== -1) {
+                users[idx] = user;
+                this.saveLocalUsers(users);
+                this.saveCurrentUser(user);
+            }
+        } catch (e) {
+            console.error("Local sync failed (Storage likely full)", e);
+            throw new Error("Storage Full: Cannot save offline. Check connection.");
         }
         return user;
     }
@@ -241,21 +250,34 @@ class DatabaseService {
 
     async getQuestions(): Promise<DSATopic[]> {
         await new Promise(resolve => setTimeout(resolve, 300));
-        const data = localStorage.getItem(this.questionsKey);
-        return data ? JSON.parse(data) : FULL_QUESTIONS; 
+        try {
+            const data = localStorage.getItem(this.questionsKey);
+            return data ? JSON.parse(data) : FULL_QUESTIONS; 
+        } catch (e) {
+            return FULL_QUESTIONS;
+        }
     }
 
     private getLocalUsers(): UserProfile[] {
-        const data = localStorage.getItem(this.usersKey);
-        return data ? JSON.parse(data) : [];
+        try {
+            const data = localStorage.getItem(this.usersKey);
+            return data ? JSON.parse(data) : [];
+        } catch (e) { return []; }
     }
 
     private saveLocalUsers(users: UserProfile[]) {
-        localStorage.setItem(this.usersKey, JSON.stringify(users));
+        try {
+            localStorage.setItem(this.usersKey, JSON.stringify(users));
+        } catch (e) {
+            console.error("LocalStorage Limit Reached", e);
+            throw new Error("Local Storage Full");
+        }
     }
 
     private saveCurrentUser(user: UserProfile) {
-        localStorage.setItem(this.currentUserKey, JSON.stringify(user));
+        try {
+            localStorage.setItem(this.currentUserKey, JSON.stringify(user));
+        } catch (e) { console.error("Session Save Fail", e); }
     }
 }
 
