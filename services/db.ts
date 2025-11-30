@@ -71,7 +71,8 @@ class DatabaseService {
     private currentUserKey = 'codex_current_user';
     private questionsKey = 'codex_questions_db';
     
-    private baseUrl = 'http://localhost:3001/api';
+    // Use relative path to leverage Vite proxy
+    private baseUrl = '/api';
     private isBackendAvailable = false;
 
     constructor() {
@@ -104,21 +105,21 @@ class DatabaseService {
 
     async login(email: string): Promise<UserProfile | null> {
         // Try Backend
-        if (this.isBackendAvailable) {
-             try {
-                const res = await fetch(`${this.baseUrl}/auth/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email })
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    this.saveCurrentUser(data.user);
-                    return data.user;
-                }
-                return null;
-            } catch (e) { return null; }
-        }
+        // For development, assume backend might be running on localhost via proxy
+        // Since checkBackend is naive, we can attempt fetch directly and fallback
+        try {
+            const res = await fetch(`${this.baseUrl}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                this.saveCurrentUser(data.user);
+                this.isBackendAvailable = true;
+                return data.user;
+            }
+        } catch (e) { /* Fallback */ }
         
         // Fallback Local
         await new Promise(resolve => setTimeout(resolve, 600));
@@ -133,16 +134,22 @@ class DatabaseService {
 
     async signup(name: string, email: string): Promise<UserProfile> {
         // Try Backend
-        if (this.isBackendAvailable) {
-             const res = await fetch(`${this.baseUrl}/auth/signup`, {
+        try {
+            const res = await fetch(`${this.baseUrl}/auth/signup`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, email })
             });
-            if (!res.ok) throw new Error('User already exists');
-            const data = await res.json();
-            this.saveCurrentUser(data.user);
-            return data.user;
+            if (res.ok) {
+                const data = await res.json();
+                this.saveCurrentUser(data.user);
+                this.isBackendAvailable = true;
+                return data.user;
+            } else if (res.status === 400) {
+                 throw new Error('User already exists');
+            }
+        } catch (e: any) {
+            if (e.message === 'User already exists') throw e;
         }
 
         // Fallback Local
@@ -165,25 +172,24 @@ class DatabaseService {
         if (!user.email) return user;
 
         // Backend Sync
-        if (this.isBackendAvailable) {
-             try {
-                 const res = await fetch(`${this.baseUrl}/user/sync`, {
-                     method: 'POST',
-                     headers: { 'Content-Type': 'application/json' },
-                     body: JSON.stringify({ 
-                         email: user.email, 
-                         files: user.files, 
-                         completedTopics: user.completedTopics,
-                         points: user.points 
-                     })
-                 });
-                 if (res.ok) {
-                     const data = await res.json();
-                     this.saveCurrentUser(data.user);
-                     return data.user;
-                 }
-             } catch (e) { /* silent fail */ }
-        }
+        try {
+            const res = await fetch(`${this.baseUrl}/user/sync`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    email: user.email, 
+                    files: user.files, 
+                    completedTopics: user.completedTopics,
+                    points: user.points 
+                })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                this.saveCurrentUser(data.user);
+                this.isBackendAvailable = true;
+                return data.user;
+            }
+        } catch (e) { /* silent fail */ }
 
         // Local Sync
         const users = this.getLocalUsers();

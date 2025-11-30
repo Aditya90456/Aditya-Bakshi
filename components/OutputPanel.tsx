@@ -78,7 +78,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="h-72 bg-slate-950 border-t border-slate-800 flex flex-col shrink-0 animate-in slide-in-from-bottom-10 duration-300 relative z-40 shadow-2xl">
+    <div className="h-72 bg-slate-950 border-t border-slate-800 flex flex-col shrink-0 animate-slide-up duration-300 relative z-40 shadow-2xl">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800 shrink-0">
         <div className="flex items-center gap-2">
@@ -129,7 +129,7 @@ export const OutputPanel: React.FC<OutputPanelProps> = ({
             )}
             
             {logs.map((log) => (
-              <div key={log.id} className="flex gap-3 items-start animate-in fade-in duration-300">
+              <div key={log.id} className="flex gap-3 items-start animate-fade-in duration-300">
                 <span className="shrink-0 mt-0.5 opacity-80">
                   {log.type === 'error' && <AlertCircle className="w-3.5 h-3.5 text-red-500" />}
                   {log.type === 'success' && <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { X, CheckCircle2, AlertCircle, Info, Loader2 } from 'lucide-react';
 
