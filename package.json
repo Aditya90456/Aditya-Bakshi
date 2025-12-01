@@ -3,6 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "main": "server.js",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -11,7 +12,7 @@
     "dev:all": "concurrently \"npm run start\" \"npm run dev\""
   },
   "dependencies": {
-    "@google/genai": "*",
+    "@google/genai": "latest",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
@@ -34,5 +35,14 @@
     "tailwindcss": "^3.4.3",
     "typescript": "^5.2.2",
     "vite": "^5.2.0"
-  }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Aditya90456/Aditya-Bakshi.git"
+  },
+  "author": "Aditya90456",
+  "license": "MIT"
 }
