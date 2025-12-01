@@ -77,17 +77,7 @@ class DatabaseService {
     private isBackendAvailable = false;
 
     constructor() {
-        this.checkBackend();
         this.initializeQuestions();
-    }
-
-    private async checkBackend() {
-        try {
-            // Check availability - assuming if fetch works
-            this.isBackendAvailable = false; 
-        } catch (e) {
-            this.isBackendAvailable = false;
-        }
     }
 
     private initializeQuestions() {
