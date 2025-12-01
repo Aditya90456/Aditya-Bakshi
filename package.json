@@ -11,13 +11,13 @@
     "dev:all": "concurrently \"npm run start\" \"npm run dev\""
   },
   "dependencies": {
-    "@google/genai": "^0.1.0",
+    "@google/genai": "*",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "firebase": "^10.12.0",
     "lucide-react": "^0.378.0",
-    "monaco-editor": "0.44.0",
+    "monaco-editor": "^0.44.0",
     "nodemailer": "^6.9.13",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
