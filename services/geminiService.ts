@@ -15,22 +15,12 @@ If asked to "fix" or "refactor", provide the full corrected code block so the us
 
 let chatSession: Chat | null = null;
 let currentModel: string = 'gemini-2.5-flash';
-let ai: GoogleGenAI | null = null;
 
-// Initialize the API client lazily
-const getAI = (): GoogleGenAI => {
-  if (!ai) {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
-    if (!apiKey) {
-      throw new Error('VITE_GEMINI_API_KEY is not configured. Please set it in your environment variables.');
-    }
-    ai = new GoogleGenAI({ apiKey });
-  }
-  return ai;
-};
+// Initialize the API client
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const initChat = () => {
-  chatSession = getAI().chats.create({
+  chatSession = ai.chats.create({
     model: currentModel,
     config: {
       systemInstruction: SYSTEM_INSTRUCTION,
@@ -94,7 +84,7 @@ ${code}
 `;
 
   try {
-    const response = await getAI().models.generateContent({
+    const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
@@ -121,7 +111,7 @@ ${code}
 `;
 
   try {
-    const response = await getAI().models.generateContent({
+    const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
@@ -155,7 +145,7 @@ ${code}
 `;
 
   try {
-    const response = await getAI().models.generateContent({
+    const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
