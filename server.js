@@ -15,29 +15,50 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Increased limit for file/git data
 
-// --- DATABASE SETUP (Simple JSON File) ---
+// --- DATABASE SETUP (Hybrid: File System + In-Memory Fallback) ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DB_FILE = path.join(__dirname, 'users.json');
+// Use /tmp for Vercel serverless environment (ephemeral but writable)
+const DB_FILE = process.env.VERCEL ? path.join('/tmp', 'users.json') : path.join(__dirname, 'users.json');
 
-// Ensure DB file exists
-if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify([], null, 2));
-}
+// In-Memory Fallback for Read-Only Environments
+let usersMemory = [];
 
-// Helper to Read/Write DB
+// Helper to Read DB
 const readUsers = () => {
     try {
-        const data = fs.readFileSync(DB_FILE, 'utf8');
-        return JSON.parse(data);
+        if (fs.existsSync(DB_FILE)) {
+            const data = fs.readFileSync(DB_FILE, 'utf8');
+            usersMemory = JSON.parse(data);
+            return usersMemory;
+        }
     } catch (e) {
-        return [];
+        console.warn("FS Read Failed, using in-memory DB:", e.message);
+    }
+    return usersMemory;
+};
+
+// Helper to Write DB
+const writeUsers = (users) => {
+    usersMemory = users; // Always update memory
+    try {
+        fs.writeFileSync(DB_FILE, JSON.stringify(users, null, 2));
+    } catch (e) {
+        // Expected behavior on Vercel (Read-only file system outside /tmp)
+        console.warn("FS Write Failed (Read-Only System?), using in-memory only.");
     }
 };
 
-const writeUsers = (users) => {
-    fs.writeFileSync(DB_FILE, JSON.stringify(users, null, 2));
-};
+// Initialize DB
+if (!fs.existsSync(DB_FILE)) {
+    try {
+        fs.writeFileSync(DB_FILE, JSON.stringify([], null, 2));
+    } catch (e) {
+        console.log("Running in ephemeral mode (In-Memory DB)");
+    }
+} else {
+    readUsers(); // Load initial state into memory
+}
 
 // --- API ROUTES ---
 
@@ -107,19 +128,27 @@ app.post('/api/user/sync', (req, res) => {
     res.json({ user });
 });
 
-// --- PRODUCTION SERVING ---
-// If running in production, serve the React build
-if (process.env.NODE_ENV === 'production') {
-    app.use(express.static(path.join(__dirname, 'dist')));
-    
-    app.get('*', (req, res) => {
-        // Exclude API routes from wildcard
-        if (req.path.startsWith('/api')) return res.status(404).json({ error: 'API Not Found' });
-        res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+// Vercel health check
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', mode: process.env.VERCEL ? 'serverless' : 'server' });
+});
+
+// --- SERVER STARTUP ---
+// Only listen if run directly (node server.js). 
+// On Vercel, the app is exported and handled by the platform.
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+    // If running in production locally, serve static files
+    if (process.env.NODE_ENV === 'production') {
+        app.use(express.static(path.join(__dirname, 'dist')));
+        app.get('*', (req, res) => {
+            if (req.path.startsWith('/api')) return res.status(404).json({ error: 'API Not Found' });
+            res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+        });
+    }
+
+    app.listen(PORT, () => {
+      console.log(`Codex Backend running on port ${PORT}`);
     });
 }
 
-app.listen(PORT, () => {
-  console.log(`Codex Backend running on port ${PORT}`);
-  console.log(`Database file: ${DB_FILE}`);
-});
+export default app;
