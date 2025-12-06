@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "engines": {
-    "node": ">=20.0.0"
+    "node": "20.x"
   },
   "scripts": {
     "dev": "vite",
@@ -17,10 +17,10 @@
     "@google/genai": "*",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "express": "^4.21.1",
-    "firebase": "^11.0.2",
+    "express": "^4.19.2",
+    "firebase": "^10.12.2",
     "lucide-react": "^0.460.0",
-    "monaco-editor": "^0.44.0",
+    "monaco-editor": "^0.50.0",
     "nodemailer": "^6.9.16",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
